@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>org.xhtmlrenderer</groupId>
+  <artifactId>flying-saucer-parent</artifactId>
+  <versioning>
+    <versions>
+      <version>9.0.9-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20151018161059</lastUpdated>
+  </versioning>
+</metadata>
