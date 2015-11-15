@@ -1,18 +1,14 @@
 package org.xhtmlrenderer.css.style.derived;
 
 import java.awt.Rectangle;
-import java.util.List;
 
-import org.w3c.dom.css.CSSPrimitiveValue;
 import org.xhtmlrenderer.css.constants.CSSName;
 import org.xhtmlrenderer.css.constants.IdentValue;
 import org.xhtmlrenderer.css.parser.FSColor;
-import org.xhtmlrenderer.css.style.BackgroundPosition;
+import org.xhtmlrenderer.css.parser.FSRGBColor;
 import org.xhtmlrenderer.css.style.BorderRadiusCorner;
 import org.xhtmlrenderer.css.style.CalculatedStyle;
 import org.xhtmlrenderer.css.style.CssContext;
-import org.xhtmlrenderer.css.style.FSDerivedValue;
-import org.xhtmlrenderer.newtable.CollapsedBorderValue;
 
 /**
  * Created by IntelliJ IDEA.
@@ -22,7 +18,7 @@ import org.xhtmlrenderer.newtable.CollapsedBorderValue;
  * To change this template use File | Settings | File Templates.
  */
 public class BorderPropertySet extends RectPropertySet {
-    public static final BorderPropertySet EMPTY_BORDER = new BorderPropertySet(0.0f, 0.0f, 0.0f, 0.0f);
+    public static final BorderPropertySet EMPTY_BORDER = new BorderPropertySet();
     
     private IdentValue _topStyle;
     private IdentValue _rightStyle;
@@ -38,6 +34,28 @@ public class BorderPropertySet extends RectPropertySet {
     private BorderRadiusCorner _topRight;
     private BorderRadiusCorner _bottomRight;
     private BorderRadiusCorner _bottomLeft;
+    
+    public BorderPropertySet() {
+        _topStyle = IdentValue.NONE;
+        _rightStyle = IdentValue.NONE;
+        _bottomStyle = IdentValue.NONE;
+        _leftStyle = IdentValue.NONE;
+        
+        _topColor = FSRGBColor.TRANSPARENT;
+        _rightColor = FSRGBColor.TRANSPARENT;
+        _bottomColor = FSRGBColor.TRANSPARENT;
+        _leftColor = FSRGBColor.TRANSPARENT;
+        
+        _top = 0;
+        _right = 0;
+        _bottom = 0;
+        _left = 0;
+        
+        _topLeft = new BorderRadiusCorner();
+        _topRight = new BorderRadiusCorner();
+        _bottomLeft = new BorderRadiusCorner();
+        _bottomRight = new BorderRadiusCorner();
+    }
 
     public BorderPropertySet(BorderPropertySet border) {
         this(border.top(), border.right(), border.bottom(), border.left());
@@ -95,25 +113,25 @@ public class BorderPropertySet extends RectPropertySet {
     }
     
     public BorderPropertySet(
-           CollapsedBorderValue top,
-           CollapsedBorderValue right,
-           CollapsedBorderValue bottom,
-           CollapsedBorderValue left
+            BorderPropertySet top,
+            BorderPropertySet right,
+            BorderPropertySet bottom,
+            BorderPropertySet left
     ) {
-        this(   top.width(),
-                right.width(),
-                bottom.width(),
-                left.width());
+        this(   (top.width()+1)/2,
+                right.width()/2,
+                bottom.width()/2,
+                (left.width()+1)/2);
         
-        this._topStyle = top.style();
-        this._rightStyle = right.style();
-        this._bottomStyle = bottom.style();
-        this._leftStyle = left.style();
+        this._topStyle = top.topStyle();
+        this._rightStyle = right.rightStyle();
+        this._bottomStyle = bottom.bottomStyle();
+        this._leftStyle = left.leftStyle();
 
-        this._topColor = top.color();
-        this._rightColor = right.color();
-        this._bottomColor = bottom.color();
-        this._leftColor = left.color();       
+        this._topColor = top.topColor();
+        this._rightColor = right.rightColor();
+        this._bottomColor = bottom.bottomColor();
+        this._leftColor = left.leftColor();       
         
         this._topLeft = new BorderRadiusCorner();
         this._topRight = new BorderRadiusCorner();

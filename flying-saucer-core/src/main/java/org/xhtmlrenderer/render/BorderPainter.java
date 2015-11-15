@@ -20,19 +20,15 @@
 package org.xhtmlrenderer.render;
 
 import java.awt.BasicStroke;
-import java.awt.Polygon;
 import java.awt.Rectangle;
-import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Arc2D;
 import java.awt.geom.Area;
 import java.awt.geom.Path2D;
-import java.awt.geom.Point2D;
 
 import org.xhtmlrenderer.css.constants.IdentValue;
-import org.xhtmlrenderer.css.parser.FSColor;
 import org.xhtmlrenderer.css.parser.FSRGBColor;
 import org.xhtmlrenderer.css.style.BorderRadiusCorner;
 import org.xhtmlrenderer.css.style.derived.BorderPropertySet;
@@ -110,27 +106,24 @@ public class BorderPainter {
         } else {
             sideWidth = bounds.width-(1+scaledOffset)*(widthScale)*(border.left()+border.right());
         }
+
         Path2D path = new Path2D.Float();
         
-        float angle = 90 * props.getTop() / (props.getTop() + props.getLeft());
-        appendPath(path, 0-props.getLeft(), 0-props.getTop(), props.getLeftCorner().left(), props.getLeftCorner().right(), 90+angle, -angle-1, props.getTop(), props.getLeft(), scaledOffset, true, widthScale);
-        
-        angle = 90 * props.getTop() / (props.getTop() + props.getRight());
-        appendPath(path, sideWidth+props.getRight(), 0-props.getTop(), props.getRightCorner().right(), props.getRightCorner().left(), 90, -angle-1, props.getTop(), props.getRight(), scaledOffset, false, widthScale);
-        
-        
-        if(drawInterior) {
-            //border = border.normalizeBorderRadius(new Rectangle((int)(bounds.width), (int)(bounds.height)));
-            //props = new RelativeBorderProperties(bounds, border, 0f, side, 1+scaledOffset, 1);
+        if (drawInterior) {
+            float angle = 90 * props.getTop() / (props.getTop() + props.getLeft());
+            appendPath(path, 0, 0, props.getLeftCorner().left(), props.getLeftCorner().right(), 90+angle, -angle-1, props.getTop(), props.getLeft(), scaledOffset, true, widthScale);
             
-            appendPath(path, sideWidth, 0, props.getRightCorner().right(), props.getRightCorner().left(), 90-angle, angle+1, props.getTop(), props.getRight(), scaledOffset+1, false, widthScale);
-            
-            angle = 90 * props.getTop() / (props.getTop() + props.getLeft());
-            appendPath(path, 0, 0, props.getLeftCorner().left(), props.getLeftCorner().right(), 90, angle+1, props.getTop(), props.getLeft(), scaledOffset+1, true, widthScale);
+            angle = 90 * props.getTop() / (props.getTop() + props.getRight());
+            appendPath(path, sideWidth, 0, props.getRightCorner().right(), props.getRightCorner().left(), 90, -angle-1, props.getTop(), props.getRight(), scaledOffset, false, widthScale);
             
             path.closePath();
+        } else {
+            float angle = 90 * props.getTop() / (props.getTop() + props.getLeft());
+            appendPath(path, 0, -props.getTop(), props.getLeftCorner().left(), props.getLeftCorner().right(), 90+angle, -angle-1, props.getTop(), props.getLeft(), scaledOffset, true, widthScale);
+            
+            angle = 90 * props.getTop() / (props.getTop() + props.getRight());
+            appendPath(path, sideWidth, -props.getTop(), props.getRightCorner().right(), props.getRightCorner().left(), 90, -angle-1, props.getTop(), props.getRight(), scaledOffset, false, widthScale);
         }
-        
 
         path.transform(AffineTransform.getTranslateInstance( 
                 (!props.isDimmensionsSwapped() ? -bounds.width/2f : -bounds.height/2f) + (scaledOffset+1)*props.getLeft(),
@@ -245,18 +238,7 @@ public class BorderPainter {
     public static void paint(
             Rectangle bounds, int sides, BorderPropertySet border, 
             RenderingContext ctx, int xOffset, boolean bevel) {
-        if ((sides & BorderPainter.TOP) == BorderPainter.TOP && border.noTop()) {
-            sides -= BorderPainter.TOP;
-        }
-        if ((sides & BorderPainter.LEFT) == BorderPainter.LEFT && border.noLeft()) {
-            sides -= BorderPainter.LEFT;
-        }
-        if ((sides & BorderPainter.BOTTOM) == BorderPainter.BOTTOM && border.noBottom()) {
-            sides -= BorderPainter.BOTTOM;
-        }
-        if ((sides & BorderPainter.RIGHT) == BorderPainter.RIGHT && border.noRight()) {
-            sides -= BorderPainter.RIGHT;
-        }
+
 
         //Now paint!
         if ((sides & BorderPainter.TOP) == BorderPainter.TOP && border.topColor() != FSRGBColor.TRANSPARENT) {

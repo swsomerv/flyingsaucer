@@ -77,6 +77,10 @@ public class TableCellBox extends BlockBox {
     private static final int BROWGROUP = 8;
     private static final int BCOL = 7;
     private static final int BTABLE = 6;
+
+    private enum BorderSide {
+        TOP, RIGHT, BOTTOM, LEFT
+    }
     
     public TableCellBox() {
     }
@@ -100,25 +104,19 @@ public class TableCellBox extends BlockBox {
     }
     
     public void calcCollapsedBorder(CssContext c) {
-        CollapsedBorderValue top = collapsedTopBorder(c);
-        CollapsedBorderValue right = collapsedRightBorder(c);
-        CollapsedBorderValue bottom = collapsedBottomBorder(c);
-        CollapsedBorderValue left = collapsedLeftBorder(c);
+        BorderPropertySet top = collapsedBorder(c, BorderSide.TOP);
+        BorderPropertySet right = collapsedBorder(c, BorderSide.RIGHT);
+        BorderPropertySet bottom = collapsedBorder(c, BorderSide.BOTTOM);
+        BorderPropertySet left = collapsedBorder(c, BorderSide.LEFT);
         
         _collapsedPaintingBorder = new BorderPropertySet(top, right, bottom, left);
         
-        // Give the extra pixel to top and left.
-        top.setWidth((top.width()+1)/2);
-        right.setWidth(right.width()/2);
-        bottom.setWidth(bottom.width()/2);
-        left.setWidth((left.width()+1)/2);
-        
         _collapsedLayoutBorder = new BorderPropertySet(top, right, bottom, left);
         
-        _collapsedBorderTop = top;
-        _collapsedBorderRight = right;
-        _collapsedBorderBottom = bottom;
-        _collapsedBorderLeft = left;
+        _collapsedBorderTop = new CollapsedBorderValue(top.topStyle(), (int) top.top(), top.topColor(), 1);
+        _collapsedBorderRight = new CollapsedBorderValue(right.rightStyle(), (int) right.right(), right.rightColor(), 1);
+        _collapsedBorderBottom = new CollapsedBorderValue(bottom.bottomStyle(), (int) bottom.bottom(), bottom.topColor(), 1);
+        _collapsedBorderLeft = new CollapsedBorderValue(left.leftStyle(), (int) left.left(), left.topColor(), 1);
     }
 
     public int getCol() {
@@ -394,378 +392,133 @@ public class TableCellBox extends BlockBox {
         return true;
     } 
 
-    // The following rules apply for resolving conflicts and figuring out which
-    // border
-    // to use.
-    // (1) Borders with the 'border-style' of 'hidden' take precedence over all
-    // other conflicting
-    // borders. Any border with this value suppresses all borders at this
-    // location.
-    // (2) Borders with a style of 'none' have the lowest priority. Only if the
-    // border properties of all
-    // the elements meeting at this edge are 'none' will the border be omitted
-    // (but note that 'none' is
-    // the default value for the border style.)
-    // (3) If none of the styles are 'hidden' and at least one of them is not
-    // 'none', then narrow borders
-    // are discarded in favor of wider ones. If several have the same
-    // 'border-width' then styles are preferred
-    // in this order: 'double', 'solid', 'dashed', 'dotted', 'ridge', 'outset',
-    // 'groove', and the lowest: 'inset'.
-    // (4) If border styles differ only in color, then a style set on a cell
-    // wins over one on a row,
-    // which wins over a row group, column, column group and, lastly, table. It
-    // is undefined which color
-    // is used when two elements of the same type disagree.
-    public static CollapsedBorderValue compareBorders(
-            CollapsedBorderValue border1, CollapsedBorderValue border2, boolean returnNullOnEqual) {
-        // Sanity check the values passed in.  If either is null, return the other.
-        if (!border2.defined()) {
-            return border1;
+    private static BorderSide flipSide(BorderSide side) {
+        switch (side) {
+            case TOP:
+                return BorderSide.BOTTOM;
+            case RIGHT:
+                return BorderSide.LEFT;
+            case BOTTOM:
+                return BorderSide.TOP;
+            case LEFT:
+                return BorderSide.RIGHT;
+        }
+    
+        throw new IllegalArgumentException("Unexpected side: " + side);
+    }
+    
+    private static IdentValue getBorderStyle(BorderPropertySet border, BorderSide side) {
+        switch (side) {
+            case TOP:
+                return border.topStyle();
+            case RIGHT:
+                return border.rightStyle();
+            case BOTTOM:
+                return border.bottomStyle();
+            case LEFT:
+                return border.leftStyle();
+        }
+
+        throw new IllegalArgumentException("Unexpected side: " + side);
+    }
+    
+    private static float getBorderWidth(BorderPropertySet border, BorderSide side) {
+        switch (side) {
+            case TOP:
+                return border.top();
+            case RIGHT:
+                return border.right();
+            case BOTTOM:
+                return border.bottom();
+            case LEFT:
+                return border.left();
+        }
+
+        throw new IllegalArgumentException("Unexpected side: " + side);
+    }
+
+    private static BorderPropertySet nullSafeBorderLookup(CssContext c, Box box) {
+        if (box != null && box.getStyle().getBorder(c) != null) {
+            return box.getStyle().getBorder(c);
+        } else {
+            return BorderPropertySet.EMPTY_BORDER;
+        }
+    }
+
+    private static boolean useOtherBorder(
+            BorderPropertySet currentBorder,
+            BorderSide currentSide,
+            BorderPropertySet otherBorder,
+            BorderSide otherSide) {
+        if (IdentValue.HIDDEN.equals(getBorderStyle(otherBorder, otherSide))) {
+            return true;
+        }
+
+        if (getBorderWidth(otherBorder, otherSide) > getBorderWidth(currentBorder, currentSide)) {
+            return true;
+        }
+
+        return BORDER_PRIORITIES[getBorderStyle(otherBorder, otherSide).FS_ID] > 
+            BORDER_PRIORITIES[getBorderStyle(currentBorder, currentSide).FS_ID];
+    }
+
+    private BorderPropertySet collapsedBorder(CssContext c, BorderSide side) {
+        TableCellBox touchingCell;
+
+        switch (side) {
+            case TOP:
+                touchingCell = getTable().cellAbove(this);
+                break;
+            case RIGHT:
+                touchingCell = getTable().cellRight(this);
+                break;
+            case BOTTOM:
+                touchingCell = getTable().cellBelow(this);
+                break;
+            case LEFT:
+                touchingCell = getTable().cellLeft(this);
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected side: " + side);
+        }
+
+        BorderPropertySet currentBorder = nullSafeBorderLookup(c, this);
+        BorderPropertySet touchingBorder = nullSafeBorderLookup(c, touchingCell);
+
+        // look for any uses of HIDDEN
+        if (IdentValue.HIDDEN.equals(getBorderStyle(currentBorder, side))) {
+            return currentBorder;
         }
         
-        if (!border1.defined()) {
-            return border2;
-        }
-        
-        // Rule #1 above.
-        if (border1.style() == IdentValue.HIDDEN)
-        {
-            return border1;
-        }
-        if (border2.style() == IdentValue.HIDDEN)
-        {
-            return border2;
+        if (IdentValue.HIDDEN.equals(getBorderStyle(touchingBorder, flipSide(side)))) {
+            return BorderPropertySet.EMPTY_BORDER;
         }
 
-        // Rule #2 above. A style of 'none' has lowest priority and always loses
-        // to any other border.
-        if (border2.style() == IdentValue.NONE) {
-            return border1;
+        // TODO: check row group, column, column group, table
+
+        // look for first non-NONE borders and compare
+        boolean currentIsNone = IdentValue.NONE.equals(getBorderStyle(currentBorder, side));
+        boolean touchingIsNone = IdentValue.NONE.equals(getBorderStyle(touchingBorder, flipSide(side)));
+
+        if (currentIsNone || touchingIsNone) {
+            return currentBorder;
         }
 
-        if (border1.style() == IdentValue.NONE) {
-            return border2;
+        if (useOtherBorder(currentBorder, side, touchingBorder, flipSide(side))) {
+            return BorderPropertySet.EMPTY_BORDER;
         }
 
-        // The first part of rule #3 above. Wider borders win.
-        if (border1.width() != border2.width()) {
-            return border1.width() > border2.width() ? border1 : border2;
-        }
-
-        // The borders have equal width. Sort by border style.
-        if (border1.style() != border2.style()) {
-            return BORDER_PRIORITIES[border1.style().FS_ID] > 
-                BORDER_PRIORITIES[border2.style().FS_ID] ? border1 : border2;
-        }
-
-        // The border have the same width and style. Rely on precedence (cell
-        // over row over row group, etc.)
-        if (returnNullOnEqual && border1.precedence() == border2.precedence()) {
-            return null;
+        // the spec does not define who wins with all else being equal,
+        // in Chrome the right border wins and the bottom border wins
+        // so we'll go with that strategy as well
+        if (BorderSide.LEFT.equals(side) || BorderSide.TOP.equals(side)) {
+            return BorderPropertySet.EMPTY_BORDER;
         } else {
-            return border1.precedence() >= border2.precedence() ? border1 : border2;    
-        } 
-    }
-    
-    private static CollapsedBorderValue compareBorders(
-            CollapsedBorderValue border1, CollapsedBorderValue border2) {
-        return compareBorders(border1, border2, false);
-    }
-    
-    private CollapsedBorderValue collapsedLeftBorder(CssContext c) {
-        BorderPropertySet border = getStyle().getBorder(c);
-        // For border left, we need to check, in order of precedence:
-        // (1) Our left border.
-        CollapsedBorderValue result = CollapsedBorderValue.borderLeft(border, BCELL);
-
-        // (2) The previous cell's right border.
-        TableCellBox prevCell = getTable().cellLeft(this);
-        if (prevCell != null) {
-            result = compareBorders(
-                    result, CollapsedBorderValue.borderRight(prevCell.getStyle().getBorder(c), BCELL));
-            if (result.hidden()) {
-                return result;
-            }
-        } else if (getCol() == 0) {
-            // (3) Our row's left border.
-            result = compareBorders(
-                    result, CollapsedBorderValue.borderLeft(getParent().getStyle().getBorder(c), BROW));
-            if (result.hidden()) {
-                return result;
-            }
-
-            // (4) Our row group's left border.
-            result = compareBorders(
-                    result, CollapsedBorderValue.borderLeft(getSection().getStyle().getBorder(c), BROWGROUP));
-            if (result.hidden()) {
-                return result;
-            }
+            return currentBorder;
         }
-
-        // (5) Our column's left border.
-        TableColumn colElt = getTable().colElement(getCol());
-        if (colElt != null) {
-            result = compareBorders(
-                    result, CollapsedBorderValue.borderLeft(colElt.getStyle().getBorder(c), BCOL));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // (6) The previous column's right border.
-        if (getCol() > 0) {
-            colElt = getTable().colElement(getCol() - 1);
-            if (colElt != null) {
-                result = compareBorders(
-                        result, CollapsedBorderValue.borderRight(colElt.getStyle().getBorder(c), BCOL));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        }
-
-        if (getCol() == 0) {
-            // (7) The table's left border.
-            result = compareBorders(
-                    result, CollapsedBorderValue.borderLeft(getTable().getStyle().getBorder(c), BTABLE));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        return result;
-    }
-    
-    private CollapsedBorderValue collapsedRightBorder(CssContext c) {
-        TableBox tableElt = getTable();
-        boolean inLastColumn = false;
-        int effCol = tableElt.colToEffCol(getCol() + getStyle().getColSpan() - 1);
-        if (effCol == tableElt.numEffCols() - 1) {
-            inLastColumn = true;
-        }
-
-        // For border right, we need to check, in order of precedence:
-        // (1) Our right border.
-        CollapsedBorderValue result = 
-            CollapsedBorderValue.borderRight(getStyle().getBorder(c), BCELL);
-
-        // (2) The next cell's left border.
-        if (!inLastColumn) {
-            TableCellBox nextCell = tableElt.cellRight(this);
-            if (nextCell != null) {
-                result = compareBorders(result, 
-                        CollapsedBorderValue.borderLeft(nextCell.getStyle().getBorder(c), BCELL));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        } else {
-            // (3) Our row's right border.
-            result = compareBorders(result, 
-                    CollapsedBorderValue.borderRight(getParent().getStyle().getBorder(c), BROW));
-            if (result.hidden()) {
-                return result;
-            }
-
-            // (4) Our row group's right border.
-            result = compareBorders(result, 
-                    CollapsedBorderValue.borderRight(getSection().getStyle().getBorder(c), BROWGROUP));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // (5) Our column's right border.
-        TableColumn colElt = getTable().colElement(getCol() + getStyle().getColSpan() - 1);
-        if (colElt != null) {
-            result = compareBorders(result, 
-                    CollapsedBorderValue.borderRight(colElt.getStyle().getBorder(c), BCOL));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // (6) The next column's left border.
-        if (!inLastColumn) {
-            colElt = tableElt.colElement(getCol() + getStyle().getColSpan());
-            if (colElt != null) {
-                result = compareBorders(result, 
-                        CollapsedBorderValue.borderLeft(colElt.getStyle().getBorder(c), BCOL));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        } else {
-            // (7) The table's right border.
-            result = compareBorders(result, 
-                    CollapsedBorderValue.borderRight(tableElt.getStyle().getBorder(c), BTABLE));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        return result;
-    }
-    
-    private CollapsedBorderValue collapsedTopBorder(CssContext c) {
-        // For border top, we need to check, in order of precedence:
-        // (1) Our top border.
-        CollapsedBorderValue result = 
-            CollapsedBorderValue.borderTop(getStyle().getBorder(c), BCELL);
-
-        TableCellBox prevCell = getTable().cellAbove(this);
-        if (prevCell != null) {
-            // (2) A previous cell's bottom border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderBottom(prevCell.getStyle().getBorder(c), BCELL));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // (3) Our row's top border.
-        result = compareBorders(result, 
-                    CollapsedBorderValue.borderTop(getParent().getStyle().getBorder(c), BROW));
-        if (result.hidden()) {
-            return result;
-        }
-
-        // (4) The previous row's bottom border.
-        if (prevCell != null) {
-            TableRowBox prevRow = null;
-            if (prevCell.getSection() == getSection()) {
-                prevRow = (TableRowBox) getParent().getPreviousSibling();
-            } else {
-                prevRow = prevCell.getSection().getLastRow();
-            }
-
-            if (prevRow != null) {
-                result = compareBorders(result, 
-                            CollapsedBorderValue.borderBottom(prevRow.getStyle().getBorder(c), BROW));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        }
-
-        // Now check row groups.
-        TableSectionBox currSection = getSection();
-        if (getRow() == 0) {
-            // (5) Our row group's top border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderTop(currSection.getStyle().getBorder(c), BROWGROUP));
-            if (result.hidden()) {
-                return result;
-            }
-
-            // (6) Previous row group's bottom border.
-            currSection = getTable().sectionAbove(currSection, false);
-            if (currSection != null) {
-                result = compareBorders(result, 
-                            CollapsedBorderValue.borderBottom(currSection.getStyle().getBorder(c), BROWGROUP));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        }
-
-        if (currSection == null) {
-            // (8) Our column's top border.
-            TableColumn colElt = getTable().colElement(getCol());
-            if (colElt != null) {
-                result = compareBorders(result, 
-                            CollapsedBorderValue.borderTop(colElt.getStyle().getBorder(c), BCOL));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-
-            // (9) The table's top border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderTop(getTable().getStyle().getBorder(c), BTABLE));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        return result;
     }
 
-    private CollapsedBorderValue collapsedBottomBorder(CssContext c) {
-        // For border top, we need to check, in order of precedence:
-        // (1) Our bottom border.
-        CollapsedBorderValue result = 
-            CollapsedBorderValue.borderBottom(getStyle().getBorder(c), BCELL);
 
-        TableCellBox nextCell = getTable().cellBelow(this);
-        if (nextCell != null) {
-            // (2) A following cell's top border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderTop(nextCell.getStyle().getBorder(c), BCELL));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // (3) Our row's bottom border. (FIXME: Deal with rowspan!)
-        result = compareBorders(result, 
-                    CollapsedBorderValue.borderBottom(getParent().getStyle().getBorder(c), BROW));
-        if (result.hidden()) {
-            return result;
-        }
-
-        // (4) The next row's top border.
-        if (nextCell != null) {
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderTop(nextCell.getParent().getStyle().getBorder(c), BROW));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        // Now check row groups.
-        TableSectionBox currSection = getSection();
-        if (getRow() + getStyle().getRowSpan() >= currSection.numRows()) {
-            // (5) Our row group's bottom border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderBottom(currSection.getStyle().getBorder(c), BROWGROUP));
-            if (result.hidden()) {
-                return result;
-            }
-
-            // (6) Following row group's top border.
-            currSection = getTable().sectionBelow(currSection, false);
-            if (currSection != null) {
-                result = compareBorders(result, 
-                            CollapsedBorderValue.borderTop(currSection.getStyle().getBorder(c), BROWGROUP));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-        }
-
-        if (currSection == null) {
-            // (8) Our column's bottom border.
-            TableColumn colElt = getTable().colElement(getCol());
-            if (colElt != null) {
-                result = compareBorders(result, 
-                            CollapsedBorderValue.borderBottom(colElt.getStyle().getBorder(c), BCOL));
-                if (result.hidden()) {
-                    return result;
-                }
-            }
-
-            // (9) The table's bottom border.
-            result = compareBorders(result, 
-                        CollapsedBorderValue.borderBottom(getTable().getStyle().getBorder(c), BTABLE));
-            if (result.hidden()) {
-                return result;
-            }
-        }
-
-        return result;
-    }
     
     private Rectangle getCollapsedBorderBounds(CssContext c) {
         BorderPropertySet border = getCollapsedPaintingBorder();

@@ -436,7 +436,6 @@ public class Layer {
             for (Iterator i = triggerCellsByTable.values().iterator(); i.hasNext(); ) {
                 TableCellBox cell = (TableCellBox)i.next();
                 List borders = (List)cellBordersByTable.get(cell.getTable());
-                Collections.sort(borders);
                 result.put(cell, borders);
             }
             

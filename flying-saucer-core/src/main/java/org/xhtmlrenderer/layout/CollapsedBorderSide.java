@@ -19,9 +19,7 @@
  */
 package org.xhtmlrenderer.layout;
 
-import org.xhtmlrenderer.newtable.CollapsedBorderValue;
 import org.xhtmlrenderer.newtable.TableCellBox;
-import org.xhtmlrenderer.render.BorderPainter;
 
 /**
  * A class that contains a single border side of a collapsed cell.  Collapsed
@@ -29,7 +27,7 @@ import org.xhtmlrenderer.render.BorderPainter;
  * always paint over narrower borders regardless of the relative tree order of
  * the cells in question). 
  */
-public class CollapsedBorderSide implements Comparable {
+public class CollapsedBorderSide {
     private TableCellBox _cell;
     private int _side;
     
@@ -54,51 +52,7 @@ public class CollapsedBorderSide implements Comparable {
         _side = side;
     }
     
-    public int compareTo(Object obj) {
-        CollapsedBorderSide c1 = this;
-        CollapsedBorderSide c2 = (CollapsedBorderSide)obj;
-        
-        CollapsedBorderValue v1 = null;
-        CollapsedBorderValue v2 = null;
-        
-        switch (c1._side) {
-            case BorderPainter.TOP:
-                v1 = c1._cell.getCollapsedBorderTop();
-                break;
-            case BorderPainter.RIGHT:
-                v1 = c1._cell.getCollapsedBorderRight();
-                break;
-            case BorderPainter.BOTTOM:
-                v1 = c1._cell.getCollapsedBorderBottom();
-                break;
-            case BorderPainter.LEFT:
-                v1 = c1._cell.getCollapsedBorderLeft();
-                break;                
-        }
-        
-        switch (c2._side) {
-            case BorderPainter.TOP:
-                v2 = c2._cell.getCollapsedBorderTop();
-                break;
-            case BorderPainter.RIGHT:
-                v2 = c2._cell.getCollapsedBorderRight();
-                break;
-            case BorderPainter.BOTTOM:
-                v2 = c2._cell.getCollapsedBorderBottom();
-                break;
-            case BorderPainter.LEFT:
-                v2 = c2._cell.getCollapsedBorderLeft();
-                break;                
-        }
-        
-        CollapsedBorderValue result = TableCellBox.compareBorders(v1, v2, true);
-        
-        if (result == null) {
-            return 0;
-        } else {
-            return result == v1 ? 1 : -1;
-        }
-    }
+   
 
     public boolean equals(Object o) {
         if (this == o) return true;
