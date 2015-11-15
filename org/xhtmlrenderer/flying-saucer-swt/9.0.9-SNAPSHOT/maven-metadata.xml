@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata modelVersion="1.1.0">
+  <groupId>org.xhtmlrenderer</groupId>
+  <artifactId>flying-saucer-swt</artifactId>
+  <version>9.0.9-SNAPSHOT</version>
+  <versioning>
+    <snapshot>
+      <timestamp>20151115.190112</timestamp>
+      <buildNumber>2</buildNumber>
+    </snapshot>
+    <lastUpdated>20151115190112</lastUpdated>
+    <snapshotVersions>
+      <snapshotVersion>
+        <extension>jar</extension>
+        <value>9.0.9-20151115.190112-2</value>
+        <updated>20151115190112</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>pom</extension>
+        <value>9.0.9-20151115.190112-2</value>
+        <updated>20151115190112</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <classifier>sources</classifier>
+        <extension>jar</extension>
+        <value>9.0.9-20151115.190112-2</value>
+        <updated>20151115190112</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <classifier>javadoc</classifier>
+        <extension>jar</extension>
+        <value>9.0.9-20151115.190112-2</value>
+        <updated>20151115190112</updated>
+      </snapshotVersion>
+    </snapshotVersions>
+  </versioning>
+</metadata>
